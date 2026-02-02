@@ -55,15 +55,25 @@ const getCollectionPath = (collName) => {
     return collection(db, 'artifacts', appId, 'public', 'data', collName);
 };
 
+// --- INITIAL SEEDING ---
+const INITIAL_ADMIN = {
+  username: 'admin',
+  password: 'admin123',
+  role: 'admin',
+  nama: 'Administrator BPKAD',
+  jabatan: 'Super Admin',
+  no: '0'
+};
+
 const INITIAL_SETTINGS = {
   opdName: 'Badan Pengelolaan Keuangan dan Aset Daerah',
-  opdShort: 'Singakatan Organisasi',
+  opdShort: 'BPKAD',
   parentAgency: 'Pemerintah Kabupaten Pulau Taliabu',
   address: 'Jl. Merdeka No. 1, Bobong, Pulau Taliabu',
   logoUrl: DEFAULT_LOGO_URL,
-  kepalaName: 'Darwin Kamarudin ... Ganti',
-  kepalaNip: '199208xxxxxxxxx',
-  kepalaJabatan: 'Kepala Badan atau lainnya',
+  kepalaName: '',
+  kepalaNip: '',
+  kepalaJabatan: 'Kepala BPKAD',
   titimangsa: 'Bobong' // Default tempat tanda tangan
 };
 
@@ -99,13 +109,13 @@ const getWeekNumber = (d) => {
 const checkAbsensiTime = (session) => {
   const now = new Date();
   const hour = now.getHours();
-  // Pagi: 06.00 - 09.00
+  // Pagi: 07.00 - 09.00
   if (session === 'Pagi') {
-    return hour >= 6 && hour < 9; 
+    return hour >= 7 && hour < 9; 
   }
-  // Sore: 16.00 - 18.00
+  // Sore: 16.00 - 17.00
   if (session === 'Sore') {
-    return hour >= 16 && hour < 18;
+    return hour >= 16 && hour < 17;
   }
   return false;
 };
@@ -165,18 +175,24 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Seed Admin Check (One Time)
+    // Seed Admin Check (One Time)
   useEffect(() => {
     if (!firebaseUser) return;
     const seedAdminIfEmpty = async () => {
        try {
          const usersRef = getCollectionPath('users');
-         const snapshot = await getDocs(usersRef);
-         if (snapshot.empty) {
-            const adminRef = doc(usersRef, 'admin_master');
+         // Cek langsung ke dokumen 'admin_master'
+         const adminRef = doc(usersRef, 'admin_master');
+         const adminSnap = await getDocs(query(usersRef, where("role", "==", "admin")));
+
+         // Jika benar-benar TIDAK ada user dengan role admin sama sekali
+         if (adminSnap.empty) {
+            console.log("Admin tidak ditemukan, melakukan seeding...");
             await setDoc(adminRef, INITIAL_ADMIN);
          }
-       } catch (error) { console.error(error); }
+       } catch (error) { 
+         console.error("Gagal seeding admin:", error); 
+       }
     };
     seedAdminIfEmpty();
   }, [firebaseUser]);
@@ -886,8 +902,8 @@ function AdminLaporanHarian({ employees, attendance, settings, holidays }) {
          <div>
             <label className="text-xs font-bold block mb-1">Model Cetak</label>
             <select value={printTemplate} onChange={e=>setPrintTemplate(e.target.value)} className="border p-2 rounded w-48 bg-yellow-50 border-yellow-300">
-               <option value="v1">Format Default</option>
-               <option value="v2">Format BKPSDMA</option>
+               <option value="v1">Model 1 (Standar)</option>
+               <option value="v2">Model 2 (Tabel Ringkas)</option>
             </select>
          </div>
          <button onClick={()=>window.print()} className="bg-slate-800 text-white px-4 py-2 rounded flex items-center ml-auto hover:bg-black">
@@ -2306,7 +2322,7 @@ function UserAbsensi({ user, attendance, holidays }) {
   const submit = async (e) => {
      e.preventDefault();
      await addDoc(getCollectionPath('attendance'), {
-        ...form, userId: user.id, uid: user.id, userName: user.nama, statusApproval: 'pending', timestamp: new Date().toISOString()
+        ...form, userId: user.id, userName: user.nama, statusApproval: 'pending', timestamp: new Date().toISOString()
      });
      alert('Absensi terkirim.');
   };
